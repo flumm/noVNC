@@ -20,6 +20,7 @@ import keysyms from "../core/input/keysymdef.js";
 import RFB from "../core/rfb.js";
 import Display from "../core/display.js";
 import * as WebUtil from "./webutil.js";
+import PVEUI from "./pve.js";
 
 const UI = {
 
@@ -63,6 +64,7 @@ const UI = {
     // Render default UI and initialize settings menu
     start: function(callback) {
 
+	UI.PVE = new PVEUI(UI);
         // Setup global variables first
         UI.isSafari = (navigator.userAgent.indexOf('Safari') !== -1 &&
                        navigator.userAgent.indexOf('Chrome') === -1);
@@ -95,6 +97,9 @@ const UI = {
         UI.addConnectionControlHandlers();
         UI.addClipboardHandlers();
         UI.addSettingsHandlers();
+
+	// add pve specific event handlers
+	UI.PVE.addPVEHandlers();
         document.getElementById("noVNC_status")
             .addEventListener('click', UI.hideStatus);
 
@@ -103,11 +108,6 @@ const UI = {
 
         UI.openControlbar();
 
-        // Show the connect panel on first load unless autoconnecting
-        if (!autoconnect) {
-            UI.openConnectPanel();
-        }
-
         UI.updateViewClip();
 
         UI.updateVisualState();
@@ -115,17 +115,13 @@ const UI = {
         document.getElementById('noVNC_setting_host').focus();
         document.documentElement.classList.remove("noVNC_loading");
 
-        var autoconnect = WebUtil.getConfigVar('autoconnect', false);
-        if (autoconnect === 'true' || autoconnect == '1') {
-            autoconnect = true;
-            UI.connect();
-        } else {
-            autoconnect = false;
-        }
+	UI.PVE.pveStart(function() {
+	    UI.connect();
 
-        if (typeof callback === "function") {
-            callback(UI.rfb);
-        }
+	    if (typeof callback === "function") {
+		callback(UI.rfb);
+	    }
+	});
     },
 
     initFullscreen: function() {
@@ -170,10 +166,14 @@ const UI = {
         /* Populate the controls if defaults are provided in the URL */
         UI.initSetting('host', window.location.hostname);
         UI.initSetting('port', port);
-        UI.initSetting('encrypt', (window.location.protocol === "https:"));
+        UI.initSetting('encrypt', true);
         UI.initSetting('cursor', !isTouchDevice);
         UI.initSetting('clip', false);
-        UI.initSetting('resize', 'off');
+	// we need updateSetting because
+	// otherwise we load from browser storage
+	// we want to overwrite the resize mode from url
+	var resize = WebUtil.getQueryVar('resize');
+	UI.updateSetting('resize', resize);
         UI.initSetting('shared', true);
         UI.initSetting('view_only', false);
         UI.initSetting('path', 'websockify');
@@ -434,6 +434,7 @@ const UI = {
             case 'connected':
                 UI.connected = true;
                 UI.inhibit_reconnect = false;
+		UI.pveAllowMigratedTest = true;
                 document.documentElement.classList.add("noVNC_connected");
                 if (rfb && rfb.get_encrypt()) {
                     msg = _("Connected (encrypted) to ") + UI.desktopName;
@@ -449,6 +450,10 @@ const UI = {
                 break;
             case 'disconnected':
                 UI.showStatus(_("Disconnected"));
+		if (UI.pveAllowMigratedTest === true) {
+		    UI.pveAllowMigratedTest = false;
+		    UI.PVE.pve_detect_migrated_vm();
+		}
                 break;
             default:
                 msg = "Invalid UI state";
@@ -861,6 +866,7 @@ const UI = {
         UI.closeXvpPanel();
         UI.closeClipboardPanel();
         UI.closeExtraKeys();
+	UI.closePVECommandPanel();
     },
 
 /* ------^-------
@@ -1033,9 +1039,15 @@ const UI = {
             password = WebUtil.getConfigVar('password');
         }
 
-        if (password === null) {
-            password = undefined;
-        }
+	var password = document.getElementById('noVNC_password_input').value;
+
+	if (!password) {
+	    password = WebUtil.getConfigVar('password');
+	}
+
+	if (password === null) {
+	    password = undefined;
+	}
 
         if ((!host) || (!port)) {
             var msg = _("Must set host and port");
@@ -1608,9 +1620,36 @@ const UI = {
 /* ------^-------
  *   /EXTRA KEYS
  * ==============
- *     MISC
+ *     PVE
  * ------v------*/
 
+    togglePVECommandPanel: function() {
+	if (document.getElementById('pve_commands').classList.contains("noVNC_open")) {
+	    UI.closePVECommandPanel();
+	} else {
+	    UI.openPVECommandPanel();
+	}
+    },
+
+    openPVECommandPanel: function() {
+	var me = this;
+	UI.closeAllPanels();
+	UI.openControlbar();
+
+	document.getElementById('pve_commands').classList.add("noVNC_open");
+	document.getElementById('pve_commands_button').classList.add("noVNC_selected");
+    },
+
+    closePVECommandPanel: function() {
+	document.getElementById('pve_commands').classList.remove("noVNC_open");
+	document.getElementById('pve_commands_button').classList.remove("noVNC_selected");
+    },
+
+/* ------^-------
+ *   /PVE
+ * ==============
+ *     MISC
+ * ------v------*/
     setMouseButton: function(num) {
         var view_only = UI.rfb.get_view_only();
         if (UI.rfb && !view_only) {
@@ -1658,8 +1697,16 @@ const UI = {
     },
 
     updateSessionSize: function(rfb, width, height) {
-        UI.updateViewClip();
-        UI.fixScrollbars();
+	var resize = UI.getSetting('resize');
+
+	if (resize == 'null') {
+	    var clip = UI.getSetting('clip');
+	    UI.PVE.updateFBSize(rfb, width, height, clip);
+	}
+
+	UI.applyResizeMode();
+	UI.updateViewClip();
+	UI.updateViewDrag();
     },
 
     fixScrollbars: function() {
@@ -1704,7 +1751,7 @@ const UI = {
     },
 
 /* ------^-------
- *    /MISC
+ *   /MISC
  * ==============
  */
 };
