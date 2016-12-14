@@ -442,6 +442,8 @@ const UI = {
                     msg = _("Connected (unencrypted) to ") + UI.desktopName;
                 }
                 UI.showStatus(msg);
+		rfb.get_keyboard().set_focused(true);
+		document.getElementById("noVNC_canvas").focus();
                 break;
             case 'disconnecting':
                 UI.connected = false;
