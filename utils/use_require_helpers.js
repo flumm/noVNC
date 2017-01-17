@@ -22,7 +22,7 @@ module.exports = {
             var browserify = require('browserify');
             var b = browserify(path.join(base_out_path, 'app/ui.js'), {});
             b.bundle().pipe(fs.createWriteStream(out_path));
-            return `<script src="${path.relative(base_out_path, out_path)}"></script>`;
+            return `<script src="/novnc/${path.relative(base_out_path, out_path)}"></script>`;
         },
         noCopyOverride: () => {},
     },

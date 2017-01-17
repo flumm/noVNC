@@ -1771,7 +1771,7 @@ const UI = {
 var LINGUAS = ["de", "el", "nl", "sv"];
 l10n.setup(LINGUAS);
 if (l10n.language !== "en" && l10n.dictionary === undefined) {
-    WebUtil.fetchJSON('app/locale/' + l10n.language + '.json', function (translations) {
+    WebUtil.fetchJSON('/novnc/app/locale/' + l10n.language + '.json', function (translations) {
         l10n.dictionary = translations;
 
         // wait for translations to load before loading the UI
