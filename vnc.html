@@ -15,7 +15,7 @@
     or the fragment:
         http://example.com/#host=HOST&port=PORT&encrypt=1
     -->
-    <title>noVNC</title>
+    <title>[% nodename %] - Proxmox Console</title>
 
     <meta charset="utf-8" />
 
@@ -38,6 +38,12 @@
 
     <!-- this is included as a normal file in order to catch script-loading errors as well -->
     <script type="text/javascript" src="/novnc/app/error-handler.js"></script>
+    <script type="text/javascript">
+	if (typeof(PVE) === 'undefined') PVE = {};
+	PVE.UserName = '[% username %]';
+	PVE.CSRFPreventionToken = '[% token %]';
+	INCLUDE_URI='/novnc/include';
+    </script>
 
     <!-- begin scripts -->
     <!-- promise polyfills promises for IE11 -->
