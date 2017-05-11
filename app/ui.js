@@ -1174,6 +1174,15 @@ const UI = {
             } else if (document.msExitFullscreen) {
                 document.msExitFullscreen();
             }
+
+	    // when changing from fullscreen to window,
+	    // re enable auto resize
+	    if (WebUtil.getQueryVar('resize') === null) {
+		UI.updateSetting('resize', null);
+		setTimeout(function() {
+		    UI.fixScrollbars();
+		}, 100);
+	    }
         } else {
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen();
@@ -1184,6 +1193,8 @@ const UI = {
             } else if (document.body.msRequestFullscreen) {
                 document.body.msRequestFullscreen();
             }
+	    // we want scaling in fullscreen mode
+	    UI.updateSetting('resize', 'scale');
         }
         UI.enableDisableViewClip();
         UI.updateFullscreenButton();
